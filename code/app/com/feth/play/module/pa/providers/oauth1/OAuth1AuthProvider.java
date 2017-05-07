@@ -121,8 +121,10 @@ public abstract class OAuth1AuthProvider<U extends AuthUserIdentity, I extends O
 
         if (uri.contains(Constants.OAUTH_VERIFIER)) {
 
-			final RequestToken rtoken = (RequestToken) this.auth
-					.removeFromCache(context.session(), CACHE_TOKEN);
+        	String removido = this.auth.removeFromCache(context.session(), CACHE_TOKEN);
+        	final RequestToken rtoken = new RequestToken(removido, CACHE_TOKEN);
+ 			/*final RequestToken rtoken = (RequestToken) this.auth
+					.removeFromCache(context.session(), CACHE_TOKEN);*/
 			final String verifier = request.getQueryString(Constants.OAUTH_VERIFIER);
 			try {
 				final RequestToken response = service

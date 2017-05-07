@@ -1,12 +1,16 @@
 package com.feth.play.module.pa;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.feth.play.module.pa.exceptions.AuthException;
 import com.feth.play.module.pa.providers.AuthProvider;
 import com.feth.play.module.pa.service.UserService;
 import com.feth.play.module.pa.user.AuthUser;
+
 import play.Configuration;
 import play.Logger;
 import play.i18n.Messages;
+import play.libs.oauth.OAuth.RequestToken;
+import play.libs.ws.WSClient;
 import play.mvc.Call;
 import play.mvc.Controller;
 import play.mvc.Http;
@@ -16,7 +20,12 @@ import play.mvc.Result;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class PlayAuthenticate {
@@ -28,7 +37,7 @@ public class PlayAuthenticate {
 	private static final String SETTING_KEY_ACCOUNT_AUTO_LINK = "accountAutoLink";
 	private static final String SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge";
 
-
+	@Inject  WSClient ws;
 
 	private Configuration config;
 
@@ -212,13 +221,49 @@ public class PlayAuthenticate {
 	public void storeInCache(final Session session, final String key,
 			final Object o) {
 		play.cache.Cache.set(getCacheKey(session, key), o);
+		String cambiarString = "";
+		try {
+			if(o instanceof RequestToken) {
+				cambiarString = ((RequestToken) o).token; 
+			} else {
+				cambiarString = o.toString();
+			}
+			 String elasticCall = "{                                            "+
+					 "     \"script\" : {                                     	"+
+					 "         \"inline\": \"ctx._source.nada =1   \"  		"+
+					 "     },                                                	"+
+					 "     \"upsert\" : {                                    	"+
+					 "       \"name\" : \""+getCacheKey(session,key)+"\",       "+
+					 "       \"value\" : \""+cambiarString+"\"              		"+
+					 "     }                                                  	"+
+					 " }                                                      	";
+			 CompletionStage<String> jsonPromise = null;
+			 
+			 jsonPromise =  ws.url("http://lowpi:manuel0015@107.170.254.25:8888"+"/tokens/token/"+getCacheKey(session,key)+"/_update").post(elasticCall).thenApply(response -> {
+				 			System.out.println(response.getBody());
+		          		  return response.toString();
+			 			}
+		    	  );
+			jsonPromise.toCompletableFuture().get(8000,TimeUnit.MILLISECONDS);
+		} catch (Exception e) {
+			Logger.error("ISSUE WHILE SAVING OAUTH TOKEN FOR LOGIN");
+			e.printStackTrace();
+		}
 	}
 
     public <T> T removeFromCache(final Session session, final String key) {
         final T o = getFromCache(session, key);
-
 		final String k = getCacheKey(session, key);
 		play.cache.Cache.remove(k);
+		try {
+    	CompletionStage<String> jsonPromise = null;
+    	jsonPromise = ws.url("http://lowpi:manuel0015@107.170.254.25:8888"+"/tokens/token/"+getCacheKey(session, key)).delete().thenApply(response -> {
+    		return "";	
+    	});
+		} catch (Exception e) {
+			Logger.error("ISSUE REMOVING FROM CACHE");
+    		e.printStackTrace();
+		}
 		return o;
 	}
 
@@ -229,7 +274,32 @@ public class PlayAuthenticate {
 
     @SuppressWarnings("unchecked")
     public <T> T getFromCache(final Session session, final String key) {
-        return (T) play.cache.Cache.get(getCacheKey(session, key));
+    	try {
+    		
+    		System.out.println("BUSCANDO GETCHACKEY: " + getCacheKey(session,key));
+	    	CompletionStage<String> jsonPromise = null;
+	    	String regresar = "";
+	    	jsonPromise = ws.url("http://lowpi:manuel0015@107.170.254.25:8888"+"/tokens/token/"+getCacheKey(session, key)).get().thenApply(response -> {
+	    		System.out.println("http://lowpi:manuel0015@107.170.254.25:8888"+"/tokens/token/"+getCacheKey(session, key));
+	    		System.out.println("echo laborandoooooooooooooooooooooooooooooooooooooooooo");
+	    		System.out.println("11YEPPPPPPPPPPPPPPPPPPPPPPP:" + response.getBody());
+	    		System.out.println("22YEPPPPPPPPPPPPPPPPPPPPPPP:" + response.asJson().get("_source").get("value"));
+	    		String value = "";
+	    		value =  response.asJson().get("_source").get("value").asText();
+	    		/*System.out.println("22YEPPPPPPPPPPPPPPPPPPPPPPP:" + response.asJson().get("source").asText());
+	    		System.out.println("33YEPPPPPPPPPPPPPPPPPPPPPPP:" + response.asJson().get("name").asText());
+	    		System.out.println("44YEPPPPPPPPPPPPPPPPPPPPPPP:" + response.asJson().get("_source").asText());
+	    		System.out.println("");*/
+				return value;
+	    	});
+	    	regresar = jsonPromise.toCompletableFuture().get(8000,TimeUnit.MILLISECONDS);
+	    	return (T) regresar;
+    	} catch (Exception e) {
+    		Logger.error("ISSUE GETTING FROM CACHE");
+    		e.printStackTrace();
+    	}
+    	return (T) "nada";
+        //return (T) play.cache.Cache.get(getCacheKey(session, key));
 	}
 
 	private AuthUser getUserFromCache(final Session session,

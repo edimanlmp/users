@@ -217,14 +217,22 @@ public abstract class OAuth2AuthProvider<U extends AuthUserIdentity, I extends O
 			}
 		} else if (isCallbackRequest(context)) {
 			// second step in auth process
-            final UUID storedState = this.auth.getFromCache(context.session(), STATE_TOKEN);
+            //final UUID storedState = this.auth.getFromCache(context.session(), STATE_TOKEN);
+			final String storedState = this.auth.getFromCache(context.session(), STATE_TOKEN);
             if(storedState == null) {
                 Logger.warn("Cache either timed out, or you are using a setup with multiple servers and a non-shared cache implementation");
                 // we will just behave as if there was no auth, yet...
                 return generateRedirectUrl(context, request);
             }
             final String callbackState = request.getQueryString(Constants.STATE);
-            if(!storedState.equals(UUID.fromString(callbackState))) {
+            //if(!storedState.equals(UUID.fromString(callbackState))) {
+            System.out.println("");
+            System.out.println("");
+            System.out.println("STORED STATEE:" + storedState);
+            System.out.println("CALLBACKSTATE:" + callbackState);
+            System.out.println("");
+            System.out.println("");
+            if(!storedState.equals(callbackState)) {
                 // the return callback may have been forged
                 throw new AuthException(Messages.get("playauthenticate.core.exception.oauth2.state_param_forged"));
             }
